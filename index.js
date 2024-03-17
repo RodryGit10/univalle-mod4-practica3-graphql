@@ -26,6 +26,14 @@ const typeDefs = `#graphql
   }
 
 
+  type Mutation {
+    addCategory (
+      title: String!
+      position: String
+      published: Boolean
+    ): Category
+  }
+
 `;
 
 // Resolvers define how to fetch the types defined in your schema.
@@ -37,8 +45,6 @@ const resolvers = {
     getListCategories: async (root, args) => {
       try {
         const { data: ListCategories } = await axios.get(process.env.API_URL + '/categories');
-        console.log("Resultado: ");
-        console.log(ListCategories.data);
         return ListCategories;
       } catch (error) {
         if (error.code === 'ECONNREFUSED') throw new Error('Error al conectar con el API');
@@ -58,7 +64,49 @@ const resolvers = {
   },
 
   // Para insertar Datos, verificando que el titulo sea unico
-  
+  Mutation: {
+
+    addCategory: async(root, args) => {
+
+      let existsCategory = false;
+      try {
+        // Verificamos si existe una Categoria con el mismo título
+        const { data: categorys } = await axios.get(process.env.API_URL + '/categories?title=' + args.title);
+        if (categorys.some(category => category.title === args.title)) {
+          existsCategory = true;
+        }
+        console.log("existsCategory: ", existsCategory);
+      } catch (error) {
+        if (error.code === 'ECONNREFUSED') { 
+          throw new Error('Error al conectar con el API');
+        }
+        throw new Error(error.message);
+      }
+      if (existsCategory) {
+        throw new GraphQLError('El titulo ya existe', {
+          extensions: {
+            code: 'BAD_USER_INPUT'
+          }
+        });
+      }
+
+      const newCategory = {
+        title: args.title,
+        position: args.position,
+        published: args.published // Esta línea está bien
+      };
+      console.log("resultado2: ");
+      console.log(newCategory);
+      try {
+        // Creamos el recurso en el API RESTful
+        const { data: category }  = await axios.post(process.env.API_URL + '/categories', newCategory);
+        return category;
+      } catch (error) {
+        if (error.code === 'ECONNREFUSED') throw new Error('Error al conectar con el API');
+        throw new Error(error.message);
+      }
+    },
+  },
 };
 
 
